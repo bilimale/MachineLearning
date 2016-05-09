@@ -1,0 +1,113 @@
+---
+title: "PersonalWearable"
+author: "Husha Bilimale"
+date: "May 7, 2016"
+output: html_document
+---
+
+## Abstract
+
+Personal health is important and devices can help us understand how well we are doing the activities and if activities are providing the desired effects. The importance of properly performing the physical activity can avoid injuires. There are 4 indicators of the errors that can happen while lifting a weigh of 1.25kg. The quality of the excercise determines the effect and the contributing factor of the model helps the user understand the areas of focus, be it either belt, forearm, arm is predominatly requires additonal focus by the instructors. 
+
+The indicator of the effect of excercise can help the wearer of the device with two important aspect of physical activity, one what is level of physical activity and how well the pysical activity is being performance. A model that takes into account how long and how well the physical activity is performed provides the wearer the corrective measures.
+
+## Data Background
+
+The model with all the data takes a really long time and cannot be built on a small system. Waiting for 30-45 minutes also does not complete the model building. This effects the generation of reports. The random forest and rpart model do not complete and the method of parsing the data and combining multiple contributing factor for each specific variable is calculated and combined together to build a model. The lm also does not complete and dropping the unwanted columns did not complete.
+
+## Analysis
+
+The analysis with naiveBayes gave the fastest results and have the accuracy of 87%.
+The analysis with rpart takes a lot of time to compute and give results with accuracy of.
+The analysis with random forest also takes a large amount of time and gives results with the accurancy of 
+
+The contributing factor that can be seen from the plot of the tree show the following data contribute causing the most of the B-E category of errors and requires focus from the instructors to correct.
+
+* The accel_belt_z determines if the lifting is executed perfectly or not.
+* 
+* 
+
+
+```{r}
+library(RCurl)
+library(caret)
+library(ElemStatLearn)
+library(rattle)
+library(rpart)
+library(stringr)
+library(lubridate)
+library(randomForest)
+library(e1071)
+
+trainURL <- getURL("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+testURL <- getURL("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+
+#setwd("./datascience/machinelearning/week4")
+#trainData <- read.csv("./pml-training.csv")
+
+trainData <- read.csv(text = trainURL)
+testData  <- read.csv(text = testURL)
+
+removeNA    <- sapply(trainData, function(x) mean(is.na(x))) > 0.90
+
+trainP     <- createDataPartition(trainData$classe, p = 0.7, list=FALSE)
+trainFirst <- trainData [trainP, ]
+testFirst  <- trainData[-trainP, ]
+
+trainFirst <- trainFirst[, -c(1,5)]
+testFirst <- testFirst[, -c(1,5)]
+trainFirst <- trainFirst[, removeNA == FALSE]
+testFirst <- testFirst[, removeNA == FALSE]
+
+nrow(trainFirst); nrow(testFirst)
+
+#myGrep <- function(x,y) names(y[grep(x,names(y))])
+```
+
+## Naive Bayes
+```{r, echo=FALSE}
+fit_nb <- e1071::naiveBayes(classe ~ ., trainFirst, )
+predictData <- predict(fit_nb,testFirst)
+error_nb <- predictData == testFirst$classe
+summary(error_nb)
+```
+
+### Learning with rpart
+```{r,cache=TRUE}
+#Make the sample that contains a good mix of the polulation
+
+#fit_rpart <- train(classe ~ ., na.roughfix(trainFirst[str_detect(names(trainFirst), "acce|classe")]), method = "rpart")
+
+fit_rpart <- train(classe ~ ., na.roughfix(trainFirst[str_detect(names(trainFirst), "var_roll_belt|var_accel_dumbbell|accel_forearm_x|accel_belt_z|gyros_belt_z|accel_arm_x|magnet_belt_y|magnet_arm_x|avg_roll_belt|avg_roll_dumbbell|magnet_belt_y|magnet_arm_x|stddev_roll_belt|stddev_yaw_forearm|amplitude_pitch_dumbbell|amplitude_pitch_belt|amplitude_yaw_arm|total_accel_dumbbell|total_accel_belt|max_roll_forearm|max_picth_belt|min_roll_belt|min_roll_forearm|min_roll_belt|min_pitch_forearm|max_roll_belt|min_roll_belt|magnet_forearm_z|classe")]), method = "rpart")
+
+fit_rpart$finalModel
+
+predict_rpart_data <- predict(fit_rpart, na.roughfix(testFirst))
+error_rpart <- as.vector(predict_rpart_data) == testFirst$classe
+summary(error_rpart)
+fancyRpartPlot(fit_rpart$finalModel)
+```
+
+### With Random Forest ( Takes too long to compute)
+```{r,cache=TRUE}
+#fit_rf <- train(as.factor(classe) ~ ., na.roughfix(trainFirst[str_detect(names(trainFirst), "var_roll_belt|var_accel_dumbbell|accel_forearm_x|accel_belt_z|gyros_belt_z|accel_arm_x|magnet_belt_y|magnet_arm_x|avg_roll_belt|avg_roll_dumbbell|magnet_belt_y|magnet_arm_x|stddev_roll_belt|stddev_yaw_forearm|amplitude_pitch_dumbbell|amplitude_pitch_belt|amplitude_yaw_arm|total_accel_dumbbell|total_accel_belt|max_roll_forearm|max_picth_belt|min_roll_belt|min_roll_forearm|min_roll_belt|min_pitch_forearm|classe")]), method = "rf")
+
+#fit_rf$finalModel
+
+#predict_rf_data <- predict(fit_rf, na.roughfix(testFirst))
+#error_rf <- as.vector(predict_rf_data) == testFirst$classe
+#summary(error_rf)
+#fancyRpartPlot(fit_rf$finalModel)
+```
+
+### With GBM model
+```{r}
+control_gbm <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+fit_gbm = train(classe ~ ., trainFirst, method="gbm", trControl = control_gbm, verbose =FALSE)
+```
+
+### Predicting the data
+```{r}
+predict(fit_nb, testData)
+#predict(fit_rpart, testData)
+```
