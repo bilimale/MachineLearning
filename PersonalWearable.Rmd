@@ -23,10 +23,6 @@ The analysis with random forest also takes a large amount of time and gives resu
 
 The contributing factor that can be seen from the plot of the tree show the following data contribute causing the most of the B-E category of errors and requires focus from the instructors to correct.
 
-* The accel_belt_z determines if the lifting is executed perfectly or not.
-* 
-* 
-
 
 ```{r}
 library(RCurl)
@@ -45,69 +41,80 @@ testURL <- getURL("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testi
 #setwd("./datascience/machinelearning/week4")
 #trainData <- read.csv("./pml-training.csv")
 
-trainData <- read.csv(text = trainURL)
-testData  <- read.csv(text = testURL)
+trainData <- read.csv(text = trainURL,na.strings=c('','NA'))
+testData  <- read.csv(text = testURL,na.strings=c('','NA'))
 
-removeNA    <- sapply(trainData, function(x) mean(is.na(x))) > 0.90
+trainData <- trainData[,!apply(trainData,2,function(x) any(is.na(x)))]
+trainData <- trainData[, -c(1:7)]
 
 trainP     <- createDataPartition(trainData$classe, p = 0.7, list=FALSE)
 trainFirst <- trainData [trainP, ]
 testFirst  <- trainData[-trainP, ]
 
-trainFirst <- trainFirst[, -c(1,5)]
-testFirst <- testFirst[, -c(1,5)]
-trainFirst <- trainFirst[, removeNA == FALSE]
-testFirst <- testFirst[, removeNA == FALSE]
+
+#removeNA    <- sapply(trainFirst, function(x) mean(is.na(x))) > 0.5
+
+#trainFirst <- trainFirst[, removeNA == FALSE]
+#testFirst <- testFirst[, removeNA == FALSE]
 
 nrow(trainFirst); nrow(testFirst)
+dim(trainFirst);dim(testFirst)
 
-#myGrep <- function(x,y) names(y[grep(x,names(y))])
 ```
 
 ## Naive Bayes
 ```{r, echo=FALSE}
+set.seed(15)
+
 fit_nb <- e1071::naiveBayes(classe ~ ., trainFirst, )
 predictData <- predict(fit_nb,testFirst)
+
+
 error_nb <- predictData == testFirst$classe
 summary(error_nb)
+
+table(predictData,testFirst$classe)
+# Confusion Matrix
+confusionMatrix(testFirst$classe, predictData)
+
+# Accurancy
+confusionMatrix(testFirst$classe, predictData)$overall[1]
 ```
 
-### Learning with rpart
-```{r,cache=TRUE}
-#Make the sample that contains a good mix of the polulation
 
-#fit_rpart <- train(classe ~ ., na.roughfix(trainFirst[str_detect(names(trainFirst), "acce|classe")]), method = "rpart")
-
-fit_rpart <- train(classe ~ ., na.roughfix(trainFirst[str_detect(names(trainFirst), "var_roll_belt|var_accel_dumbbell|accel_forearm_x|accel_belt_z|gyros_belt_z|accel_arm_x|magnet_belt_y|magnet_arm_x|avg_roll_belt|avg_roll_dumbbell|magnet_belt_y|magnet_arm_x|stddev_roll_belt|stddev_yaw_forearm|amplitude_pitch_dumbbell|amplitude_pitch_belt|amplitude_yaw_arm|total_accel_dumbbell|total_accel_belt|max_roll_forearm|max_picth_belt|min_roll_belt|min_roll_forearm|min_roll_belt|min_pitch_forearm|max_roll_belt|min_roll_belt|magnet_forearm_z|classe")]), method = "rpart")
-
-fit_rpart$finalModel
-
-predict_rpart_data <- predict(fit_rpart, na.roughfix(testFirst))
-error_rpart <- as.vector(predict_rpart_data) == testFirst$classe
-summary(error_rpart)
-fancyRpartPlot(fit_rpart$finalModel)
-```
-
-### With Random Forest ( Takes too long to compute)
-```{r,cache=TRUE}
-#fit_rf <- train(as.factor(classe) ~ ., na.roughfix(trainFirst[str_detect(names(trainFirst), "var_roll_belt|var_accel_dumbbell|accel_forearm_x|accel_belt_z|gyros_belt_z|accel_arm_x|magnet_belt_y|magnet_arm_x|avg_roll_belt|avg_roll_dumbbell|magnet_belt_y|magnet_arm_x|stddev_roll_belt|stddev_yaw_forearm|amplitude_pitch_dumbbell|amplitude_pitch_belt|amplitude_yaw_arm|total_accel_dumbbell|total_accel_belt|max_roll_forearm|max_picth_belt|min_roll_belt|min_roll_forearm|min_roll_belt|min_pitch_forearm|classe")]), method = "rf")
-
-#fit_rf$finalModel
-
-#predict_rf_data <- predict(fit_rf, na.roughfix(testFirst))
-#error_rf <- as.vector(predict_rf_data) == testFirst$classe
-#summary(error_rf)
-#fancyRpartPlot(fit_rf$finalModel)
-```
-
-### With GBM model
+### With Random Forest
 ```{r}
-control_gbm <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
-fit_gbm = train(classe ~ ., trainFirst, method="gbm", trControl = control_gbm, verbose =FALSE)
+
+fit_rf <- randomForest(classe ~ ., trainFirst, type = "class")
+plot(fit_rf)
+
+# Comaring the values
+table(predict(fit_rf, testFirst), testFirst$classe)
+
+#Random forest confusion Matrix
+confusionMatrix(testFirst$classe, predict(fit_rf, testFirst))
+
 ```
 
-### Predicting the data
+
+### Predicting test data
+#### Random forest has better prediction than Naive Bayes.
 ```{r}
-predict(fit_nb, testData)
-#predict(fit_rpart, testData)
+predict(fit_rf, testData)
 ```
+
+
+
+### Data Source
+
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+DocumentoDocumento
+
+Collaborators:
+
+- Wallace Ugulino (wugulino at inf dot puc-rio dot br)
+- Eduardo Velloso
+- Hugo Fuks 
+
+Read more: http://groupware.les.inf.puc-rio.br/har#ixzz48bgQG0Ke
